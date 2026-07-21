@@ -3,49 +3,58 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Video, Text & Image Chat</title>
+  <title>Random Video Chat</title>
+  <!-- Powered by PeerJS (https://peerjs.com/) and MQTT.js (https://github.com/mqttjs/MQTT.js) -->
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
     body { background: #0f172a; color: #f8fafc; height: 100vh; display: flex; flex-direction: column; padding: 12px; gap: 12px; }
 
-    header { display: flex; align-items: center; justify-content: space-between; background: #1e293b; padding: 12px 16px; border-radius: 8px; flex-wrap: wrap; gap: 10px; }
+    header { display: flex; align-items: center; justify-content: space-between; background: #1e293b; padding: 10px 16px; border-radius: 8px; flex-wrap: wrap; gap: 8px; }
     .status-badge { font-size: 14px; font-weight: 600; color: #38bdf8; }
     
-    .btn-group { display: flex; gap: 8px; }
-    .btn { border: none; padding: 10px 16px; font-size: 14px; font-weight: 700; border-radius: 6px; cursor: pointer; transition: opacity 0.2s; color: #fff; }
+    .actions { display: flex; gap: 8px; }
+    .btn { border: none; padding: 8px 16px; font-size: 14px; font-weight: 700; border-radius: 6px; cursor: pointer; transition: opacity 0.2s; }
     .btn:hover { opacity: 0.9; }
-    .btn-end { background: #ef4444; }
-    .btn-next { background: #22c55e; }
+    .btn-end { background: #ef4444; color: #fff; }
+    .btn-next { background: #22c55e; color: #fff; }
 
     .main-grid { display: flex; flex: 1; gap: 12px; overflow: hidden; }
-    .video-container { flex: 2; display: grid; grid-template-rows: 1fr 1fr; gap: 12px; }
+    .video-container { flex: 1; display: grid; grid-template-rows: 1fr 1fr; gap: 12px; }
     .video-card { position: relative; background: #020617; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
     video { width: 100%; height: 100%; object-fit: cover; }
     .video-label { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; font-size: 12px; }
 
-    .chat-container { flex: 1; background: #1e293b; border-radius: 8px; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
-    .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-    .msg { padding: 8px 12px; border-radius: 6px; font-size: 14px; max-width: 85%; word-break: break-word; }
+    /* Narrow Chat Box */
+    .chat-container { flex: 0 0 320px; width: 320px; background: #1e293b; border-radius: 8px; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+    .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 2px; }
+    
+    .msg { padding: 8px 12px; border-radius: 8px; font-size: 14px; max-width: 85%; word-break: break-word; }
     .msg.me { background: #2563eb; align-self: flex-end; }
     .msg.them { background: #334155; align-self: flex-start; }
-    .msg.system { background: transparent; color: #94a3b8; align-self: center; font-size: 12px; font-style: italic; }
-    .msg img { max-width: 100%; border-radius: 6px; margin-top: 4px; display: block; }
+    .msg.system { background: transparent; color: #94a3b8; align-self: center; font-size: 12px; font-style: italic; text-align: center; }
+    
+    /* Image fitting inside chat bubble */
+    .msg img { width: 100%; max-width: 220px; height: auto; border-radius: 6px; display: block; margin-top: 4px; object-fit: cover; }
 
-    .typing-status { font-size: 12px; color: #38bdf8; height: 16px; font-style: italic; }
+    .typing-indicator { font-size: 12px; font-style: italic; color: #38bdf8; height: 16px; padding-left: 4px; }
 
-    .chat-input { display: flex; gap: 8px; align-items: center; }
-    input[type="text"] { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; outline: none; }
-    .btn-icon { background: #334155; color: #fff; border: none; padding: 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-    .btn-send { background: #2563eb; color: #fff; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; }
-    .btn:disabled, .btn-send:disabled, .btn-icon:disabled { opacity: 0.5; cursor: not-allowed; }
+    .chat-input { display: flex; gap: 6px; align-items: center; }
+    input[type="text"] { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; outline: none; font-size: 14px; }
+    .btn-send { background: #2563eb; color: #fff; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    .btn-send:disabled { background: #475569; cursor: not-allowed; }
+
+    .img-upload-btn { background: #334155; color: #fff; border: none; padding: 8px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .img-upload-btn:hover { background: #475569; }
+    #img-input { display: none; }
 
     @media (min-width: 768px) {
       .video-container { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
     }
-    @media (max-width: 600px) {
+    @media (max-width: 640px) {
       .main-grid { flex-direction: column; }
+      .chat-container { flex: 1; width: 100%; }
     }
   </style>
 </head>
@@ -54,10 +63,10 @@
   <header>
     <div>
       <span style="color: #94a3b8; font-size: 14px;">Status: </span>
-      <span id="status" class="status-badge">Initializing camera...</span>
+      <span id="status" class="status-badge">Initializing...</span>
     </div>
-    <div class="btn-group">
-      <button id="end-btn" class="btn btn-end" disabled>End Chat</button>
+    <div class="actions">
+      <button id="end-btn" class="btn btn-end">End Chat</button>
       <button id="next-btn" class="btn btn-next">Next Stranger ➔</button>
     </div>
   </header>
@@ -75,13 +84,14 @@
     </div>
 
     <div class="chat-container">
-      <h3 style="font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 8px;">Text Chat</h3>
+      <h3 style="font-size: 15px; border-bottom: 1px solid #334155; padding-bottom: 6px;">Chat</h3>
       <div id="messages" class="chat-messages"></div>
-      <div id="typing-indicator" class="typing-status"></div>
+      <div id="typing-indicator" class="typing-indicator"></div>
+      
       <div class="chat-input">
-        <input type="file" id="file-input" accept="image/*" style="display: none;">
-        <button id="img-btn" class="btn-icon" title="Send Image" disabled>📷</button>
-        <input type="text" id="msg-input" placeholder="Say hello..." disabled>
+        <label for="img-input" class="img-upload-btn" title="Send Image">📷</label>
+        <input type="file" id="img-input" accept="image/*" disabled>
+        <input type="text" id="msg-input" placeholder="Type a message..." disabled>
         <button id="send-btn" class="btn-send" disabled>Send</button>
       </div>
     </div>
@@ -103,30 +113,28 @@
     const localVideo = document.getElementById('local-video');
     const remoteVideo = document.getElementById('remote-video');
     const messagesEl = document.getElementById('messages');
-    const typingIndicator = document.getElementById('typing-indicator');
+    const typingEl = document.getElementById('typing-indicator');
     const msgInput = document.getElementById('msg-input');
+    const imgInput = document.getElementById('img-input');
     const sendBtn = document.getElementById('send-btn');
-    const imgBtn = document.getElementById('img-btn');
-    const fileInput = document.getElementById('file-input');
     const nextBtn = document.getElementById('next-btn');
     const endBtn = document.getElementById('end-btn');
 
-    // 1. Initialize Camera
+    // Initialize Camera
     async function initCamera() {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         localVideo.srcObject = localStream;
         initPeer();
       } catch (err) {
-        console.error(err);
-        statusEl.textContent = 'Camera blocked! Must run on HTTPS or localhost.';
-        appendSystemMessage('Camera/Microphone permission denied.');
+        statusEl.textContent = 'Camera blocked (HTTPS required)';
+        appendSystemMessage('Camera/Mic permission denied or insecure context.');
       }
     }
 
-    // 2. Initialize PeerJS
+    // Initialize PeerJS
     function initPeer() {
-      statusEl.textContent = 'Connecting network...';
+      statusEl.textContent = 'Connecting...';
       peer = new Peer();
 
       peer.on('open', id => {
@@ -136,7 +144,7 @@
 
       peer.on('call', call => {
         if (isConnected) return call.close();
-        acceptIncomingCall(call);
+        acceptCall(call);
       });
 
       peer.on('connection', conn => {
@@ -145,7 +153,7 @@
       });
     }
 
-    // 3. Setup Matchmaker
+    // Matchmaker via Public MQTT Broker
     function initMatchmaker() {
       mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
@@ -165,11 +173,10 @@
       });
     }
 
-    // 4. Matchmaking Controls
     function findMatch() {
       disconnectCurrent();
-      statusEl.textContent = 'Searching for stranger...';
-      appendSystemMessage('Searching for someone online...');
+      statusEl.textContent = 'Searching...';
+      appendSystemMessage('Looking for someone online...');
       
       if (mqttClient && mqttClient.connected) {
         mqttClient.publish(TOPIC, JSON.stringify({ action: 'looking', id: myId }));
@@ -188,7 +195,7 @@
       setupCall(call);
     }
 
-    function acceptIncomingCall(call) {
+    function acceptCall(call) {
       isConnected = true;
       call.answer(localStream);
       setupCall(call);
@@ -199,81 +206,91 @@
       call.on('stream', stream => {
         remoteVideo.srcObject = stream;
         statusEl.textContent = 'Connected!';
-        appendSystemMessage('Connected! Say hi.');
+        appendSystemMessage('Connected to stranger.');
         toggleChatInputs(true);
       });
-      call.on('close', () => resetPeerState('Stranger disconnected.'));
-      call.on('error', () => resetPeerState('Connection lost.'));
+      call.on('close', () => resetPeerState('Stranger left.'));
     }
 
     function setupDataConnection(conn) {
       activeConn = conn;
-      conn.on('data', data => handleIncomingData(data));
-      conn.on('close', () => resetPeerState('Stranger left the chat.'));
+      conn.on('data', handleIncomingData);
+      conn.on('close', () => resetPeerState('Stranger disconnected.'));
     }
 
-    // 5. Messaging & Data Handlers
+    // Handle Messages (Text, Typing, Images)
     function handleIncomingData(data) {
       if (data.type === 'text') {
-        appendMessage(data.content, 'them');
-      } else if (data.type === 'image') {
-        appendImage(data.content, 'them');
+        typingEl.textContent = '';
+        appendTextMessage(data.payload, 'them');
       } else if (data.type === 'typing') {
-        typingIndicator.textContent = data.isTyping ? 'Stranger is typing...' : '';
+        typingEl.textContent = data.isTyping ? 'Stranger is typing...' : '';
+      } else if (data.type === 'image') {
+        typingEl.textContent = '';
+        appendImageMessage(data.payload, 'them');
       }
     }
 
-    // Send Text
-    sendBtn.addEventListener('click', sendMessage);
-    msgInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
-
-    function sendMessage() {
-      const text = msgInput.value.trim();
-      if (!text || !activeConn) return;
-      
-      activeConn.send({ type: 'text', content: text });
-      appendMessage(text, 'me');
-      msgInput.value = '';
-      sendTypingSignal(false);
-    }
-
-    // Typing Signal
+    // Text & Typing Logic
     msgInput.addEventListener('input', () => {
       if (!activeConn) return;
-      sendTypingSignal(true);
+      activeConn.send({ type: 'typing', isTyping: true });
       clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => sendTypingSignal(false), 2000);
+      typingTimeout = setTimeout(() => {
+        if (activeConn) activeConn.send({ type: 'typing', isTyping: false });
+      }, 1500);
     });
 
-    function sendTypingSignal(isTyping) {
-      if (activeConn) activeConn.send({ type: 'typing', isTyping });
+    sendBtn.addEventListener('click', sendTextMessage);
+    msgInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendTextMessage(); });
+
+    function sendTextMessage() {
+      const text = msgInput.value.trim();
+      if (!text || !activeConn) return;
+      activeConn.send({ type: 'text', payload: text });
+      activeConn.send({ type: 'typing', isTyping: false });
+      appendTextMessage(text, 'me');
+      msgInput.value = '';
     }
 
-    // Send Image
-    imgBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', (e) => {
+    // Image Upload Logic (Resized to fit)
+    imgInput.addEventListener('change', e => {
       const file = e.target.files[0];
       if (!file || !activeConn) return;
 
       const reader = new FileReader();
-      reader.onload = (event) => {
-        const base64Data = event.target.result;
-        activeConn.send({ type: 'image', content: base64Data });
-        appendImage(base64Data, 'me');
+      reader.onload = event => {
+        const img = new Image();
+        img.onload = () => {
+          // Resize image for optimal fast sending & bubble fit
+          const canvas = document.createElement('canvas');
+          const maxDim = 500;
+          let w = img.width, h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
+            else { w = Math.round((w * maxDim) / h); h = maxDim; }
+          }
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          
+          const base64Image = canvas.toDataURL('image/jpeg', 0.7);
+          activeConn.send({ type: 'image', payload: base64Image });
+          appendImageMessage(base64Image, 'me');
+          imgInput.value = '';
+        };
+        img.src = event.target.result;
       };
       reader.readAsDataURL(file);
-      fileInput.value = '';
     });
 
-    // End Chat Button
+    // Control Buttons
+    nextBtn.addEventListener('click', findMatch);
     endBtn.addEventListener('click', () => {
       disconnectCurrent();
-      statusEl.textContent = 'Chat ended.';
+      statusEl.textContent = 'Chat ended';
       appendSystemMessage('You ended the chat.');
     });
-
-    // Next Button
-    nextBtn.addEventListener('click', findMatch);
 
     function disconnectCurrent() {
       if (activeCall) activeCall.close();
@@ -283,7 +300,7 @@
       isConnected = false;
       remoteVideo.srcObject = null;
       messagesEl.innerHTML = '';
-      typingIndicator.textContent = '';
+      typingEl.textContent = '';
       toggleChatInputs(false);
     }
 
@@ -299,11 +316,10 @@
     function toggleChatInputs(enabled) {
       msgInput.disabled = !enabled;
       sendBtn.disabled = !enabled;
-      imgBtn.disabled = !enabled;
-      endBtn.disabled = !enabled;
+      imgInput.disabled = !enabled;
     }
 
-    function appendMessage(text, sender) {
+    function appendTextMessage(text, sender) {
       const div = document.createElement('div');
       div.className = `message ${sender}`;
       div.textContent = text;
@@ -311,11 +327,11 @@
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    function appendImage(src, sender) {
+    function appendImageMessage(base64, sender) {
       const div = document.createElement('div');
       div.className = `message ${sender}`;
       const img = document.createElement('img');
-      img.src = src;
+      img.src = base64;
       div.appendChild(img);
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
