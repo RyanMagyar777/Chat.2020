@@ -3,63 +3,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Random Video & Image Chat</title>
+  <title>Random Video & Text Chat</title>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <script src="https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-    body { background: #0f172a; color: #f8fafc; height: 100vh; display: flex; flex-direction: column; padding: 12px; gap: 12px; overflow: hidden; }
+    body { background: #0b0f19; color: #f8fafc; min-height: 100vh; display: flex; flex-direction: column; padding: 10px; gap: 10px; }
 
     /* Header & Navigation */
-    header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; background: #1e293b; padding: 10px 16px; border-radius: 8px; gap: 10px; }
-    .status-group { display: flex; align-items: center; gap: 12px; font-size: 14px; }
-    .badge { background: #334155; padding: 4px 8px; border-radius: 12px; font-size: 12px; color: #38bdf8; font-weight: 600; }
-    .actions { display: flex; gap: 8px; }
-    
-    button { border: none; padding: 8px 14px; font-size: 14px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: opacity 0.2s; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    .btn-next { background: #22c55e; color: #fff; }
-    .btn-end { background: #ef4444; color: #fff; }
-    .btn-action:hover { opacity: 0.9; }
+    header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; background: #1e293b; padding: 10px 14px; border-radius: 8px; gap: 10px; }
+    .status-group { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+    .online-badge { background: #059669; color: #fff; padding: 3px 8px; border-radius: 12px; font-weight: 600; font-size: 12px; }
+    .status-text { color: #38bdf8; font-weight: 500; }
 
-    /* Main Responsive Layout */
-    .app-body { display: flex; flex: 1; gap: 12px; height: calc(100vh - 80px); overflow: hidden; }
+    .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    select, button { padding: 8px 12px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; }
+    select { background: #0f172a; color: #f8fafc; border: 1px solid #334155; }
     
-    /* Video Section */
-    .video-section { flex: 2; display: grid; grid-template-rows: 1fr 1fr; gap: 12px; min-width: 0; }
-    .video-card { position: relative; background: #020617; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-    video { width: 100%; height: 100%; object-fit: cover; }
-    .video-label { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; font-size: 12px; }
+    .btn-end { background: #ef4444; color: #fff; }
+    .btn-end:hover { background: #dc2626; }
+    .btn-next { background: #22c55e; color: #fff; }
+    .btn-next:hover { background: #16a34a; }
+
+    /* Main App Layout */
+    .app-layout { display: flex; flex: 1; gap: 12px; overflow: hidden; height: calc(100vh - 75px); }
+    
+    /* Video Grid Section */
+    .video-section { flex: 1; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; align-items: center; justify-content: center; background: #020617; border-radius: 8px; padding: 10px; }
+    .video-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 1100px; }
+    
+    .video-card { position: relative; background: #0f172a; border-radius: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; aspect-ratio: 16 / 9; width: 100%; transition: aspect-ratio 0.2s ease; }
+    video { width: 100%; height: 100%; object-fit: cover; } /* Avoid stretching aspect ratios */
+    .video-label { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.65); padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; z-index: 2; }
 
     /* Chat Section */
-    .chat-section { flex: 1; min-width: 280px; max-width: 400px; background: #1e293b; border-radius: 8px; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
-    .chat-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; padding-bottom: 8px; font-size: 14px; }
-    .typing-indicator { font-size: 12px; color: #38bdf8; font-style: italic; min-height: 16px; }
-
-    .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; word-break: break-word; }
-    .msg { padding: 8px 12px; border-radius: 8px; font-size: 14px; max-width: 85%; }
-    .msg.me { background: #2563eb; align-self: flex-end; color: #fff; }
-    .msg.them { background: #334155; align-self: flex-start; color: #fff; }
-    .msg.system { background: transparent; color: #94a3b8; align-self: center; font-size: 12px; font-style: italic; }
+    .chat-section { width: 320px; max-width: 100%; background: #1e293b; border-radius: 8px; display: flex; flex-direction: column; padding: 10px; gap: 8px; flex-shrink: 0; }
+    .chat-header { font-size: 14px; font-weight: 600; border-bottom: 1px solid #334155; padding-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
     
-    /* Scaled image inside chat */
-    .msg img { max-width: 100%; max-height: 180px; object-fit: contain; border-radius: 6px; display: block; margin-top: 4px; }
+    .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; padding-right: 4px; }
+    .msg { padding: 8px 10px; border-radius: 6px; font-size: 13px; max-width: 85%; word-break: break-word; line-height: 1.4; }
+    .msg.me { background: #2563eb; align-self: flex-end; }
+    .msg.them { background: #334155; align-self: flex-start; }
+    .msg.system { background: transparent; color: #94a3b8; align-self: center; font-size: 11px; font-style: italic; text-align: center; }
+    
+    /* Image in Chat */
+    .msg img { max-width: 100%; max-height: 180px; border-radius: 6px; display: block; margin-top: 4px; object-fit: contain; cursor: pointer; }
 
-    /* Chat Input Controls */
-    .chat-controls { display: flex; gap: 6px; align-items: center; }
-    .chat-controls input[type="text"] { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; outline: none; font-size: 14px; }
-    .btn-icon { background: #334155; color: #fff; padding: 10px; border-radius: 6px; display: flex; align-items: center; justify-content: center; }
-    .btn-send { background: #2563eb; color: #fff; padding: 10px 14px; }
+    .typing-status { font-size: 11px; color: #38bdf8; font-style: italic; min-height: 16px; }
 
-    /* Responsive Breakpoints */
-    @media (min-width: 768px) {
-      .video-section { grid-template-rows: none; grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 650px) {
-      body { height: auto; overflow: auto; }
-      .app-body { flex-direction: column; height: auto; overflow: visible; }
-      .chat-section { max-width: 100%; min-width: 100%; height: 350px; }
-      .video-section { height: 360px; }
+    /* Chat Controls */
+    .chat-input-bar { display: flex; gap: 6px; align-items: center; }
+    .chat-input-bar input[type="text"] { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: #fff; font-size: 13px; outline: none; }
+    .btn-img { background: #334155; color: #fff; border: none; padding: 8px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    .btn-img:hover { background: #475569; }
+    .btn-send { background: #2563eb; color: #fff; }
+
+    /* Responsive Breakdown for Tablets/Phones */
+    @media (max-width: 820px) {
+      .app-layout { flex-direction: column; height: auto; overflow: visible; }
+      .video-grid { grid-template-columns: 1fr; }
+      .chat-section { width: 100%; height: 380px; }
     }
   </style>
 </head>
@@ -67,36 +70,47 @@
 
   <header>
     <div class="status-group">
-      <span>Online: <strong id="online-count" class="badge">1</strong></span>
-      <span id="status-text" style="color: #94a3b8;">Initializing camera...</span>
+      <span class="online-badge">🟢 Online: <span id="online-count">1</span></span>
+      <span id="status" class="status-text">Starting camera...</span>
     </div>
-    <div class="actions">
-      <button id="end-btn" class="btn-end btn-action" disabled>End Chat</button>
-      <button id="next-btn" class="btn-next btn-action">Next Stranger ➔</button>
+
+    <div class="controls">
+      <label for="aspect-select" style="font-size: 12px; color: #94a3b8;">Aspect Ratio:</label>
+      <select id="aspect-select">
+        <option value="16 / 9" selected>16:9</option>
+        <option value="4 / 3">4:3</option>
+        <option value="21 / 9">21:9</option>
+      </select>
+
+      <button id="end-btn" class="btn-end" disabled>End Chat</button>
+      <button id="next-btn" class="btn-next">Next Stranger ➔</button>
     </div>
   </header>
 
-  <div class="app-body">
+  <div class="app-layout">
     <div class="video-section">
-      <div class="video-card">
-        <span class="video-label">You</span>
-        <video id="local-video" autoplay muted playsinline></video>
-      </div>
-      <div class="video-card">
-        <span class="video-label">Stranger</span>
-        <video id="remote-video" autoplay playsinline></video>
+      <div class="video-grid">
+        <div class="video-card">
+          <span class="video-label">You</span>
+          <video id="local-video" autoplay muted playsinline></video>
+        </div>
+        <div class="video-card">
+          <span class="video-label">Stranger</span>
+          <video id="remote-video" autoplay playsinline></video>
+        </div>
       </div>
     </div>
 
     <div class="chat-section">
       <div class="chat-header">
-        <span>Chat</span>
-        <div id="typing-text" class="typing-indicator"></div>
+        <span>Chat Room</span>
       </div>
       <div id="messages" class="chat-messages"></div>
-      <div class="chat-controls">
-        <input type="file" id="img-input" accept="image/*" style="display: none;">
-        <button id="attach-btn" class="btn-icon" disabled title="Send Image">📷</button>
+      <div id="typing-indicator" class="typing-status"></div>
+      
+      <div class="chat-input-bar">
+        <input type="file" id="img-input" accept="image/*" hidden>
+        <button id="img-btn" class="btn-img" title="Send Image" disabled>📷</button>
         <input type="text" id="msg-input" placeholder="Type a message..." disabled>
         <button id="send-btn" class="btn-send" disabled>Send</button>
       </div>
@@ -104,8 +118,8 @@
   </div>
 
   <script>
-    const MATCH_TOPIC = 'vchat-app-v2/matchmaker';
-    const PRESENCE_TOPIC = 'vchat-app-v2/presence';
+    const MATCH_TOPIC = 'global-random-chat-v2/matchmaker';
+    const PRESENCE_TOPIC = 'global-random-chat-v2/presence';
 
     let localStream = null;
     let peer = null;
@@ -115,36 +129,39 @@
     let activeConn = null;
     let isConnected = false;
     let typingTimeout = null;
-    const activePeers = new Map();
+    const onlinePeers = new Map();
 
-    const statusText = document.getElementById('status-text');
+    // DOM Elements
+    const statusEl = document.getElementById('status');
     const onlineCountEl = document.getElementById('online-count');
     const localVideo = document.getElementById('local-video');
     const remoteVideo = document.getElementById('remote-video');
     const messagesEl = document.getElementById('messages');
+    const typingIndicator = document.getElementById('typing-indicator');
     const msgInput = document.getElementById('msg-input');
     const sendBtn = document.getElementById('send-btn');
-    const attachBtn = document.getElementById('attach-btn');
+    const imgBtn = document.getElementById('img-btn');
     const imgInput = document.getElementById('img-input');
     const nextBtn = document.getElementById('next-btn');
     const endBtn = document.getElementById('end-btn');
-    const typingText = document.getElementById('typing-text');
+    const aspectSelect = document.getElementById('aspect-select');
 
-    // 1. Initialize Media & Permissions
+    // 1. Media Initialization
     async function initCamera() {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         localVideo.srcObject = localStream;
         initPeer();
       } catch (err) {
-        statusText.textContent = 'Camera blocked (Requires HTTPS or localhost)';
-        appendSystemMessage('Camera access failed. Ensure HTTPS is enabled.');
+        console.error(err);
+        statusEl.textContent = 'Camera blocked! HTTPS required.';
+        appendSystemMessage('Camera/Microphone permissions were denied or unavailable.');
       }
     }
 
-    // 2. PeerJS Setup
+    // 2. Setup WebRTC PeerJS
     function initPeer() {
-      statusText.textContent = 'Connecting network...';
+      statusEl.textContent = 'Connecting network...';
       peer = new Peer();
 
       peer.on('open', id => {
@@ -161,20 +178,29 @@
         if (isConnected && activeConn !== conn) return;
         setupDataConnection(conn);
       });
+
+      peer.on('error', err => console.error('Peer error:', err));
     }
 
-    // 3. MQTT Presence & Matchmaker
+    // 3. Setup MQTT Matchmaker & Presence Counter
     function initMQTT() {
       mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
 
       mqttClient.on('connect', () => {
-        mqttClient.subscribe([MATCH_TOPIC, PRESENCE_TOPIC]);
-        
-        // Presence heartbeat every 3s
+        mqttClient.subscribe(MATCH_TOPIC);
+        mqttClient.subscribe(PRESENCE_TOPIC);
+
+        // Heartbeat presence system
         setInterval(() => {
-          if (mqttClient.connected && myId) {
+          if (mqttClient && mqttClient.connected && myId) {
             mqttClient.publish(PRESENCE_TOPIC, myId);
           }
+          // Clear expired online users (>6s inactive)
+          const now = Date.now();
+          for (let [id, lastSeen] of onlinePeers.entries()) {
+            if (now - lastSeen > 6000) onlinePeers.delete(id);
+          }
+          onlineCountEl.textContent = Math.max(1, onlinePeers.size);
         }, 3000);
 
         findMatch();
@@ -184,32 +210,24 @@
         const payload = message.toString();
 
         if (topic === PRESENCE_TOPIC) {
-          activePeers.set(payload, Date.now());
+          onlinePeers.set(payload, Date.now());
+          onlineCountEl.textContent = Math.max(1, onlinePeers.size);
         } else if (topic === MATCH_TOPIC && !isConnected) {
           try {
             const data = JSON.parse(payload);
             if (data.action === 'looking' && data.id !== myId) {
               connectToStranger(data.id);
             }
-          } catch(e) {}
+          } catch (e) {}
         }
       });
-
-      // Clean inactive users for online count
-      setInterval(() => {
-        const now = Date.now();
-        activePeers.forEach((time, id) => {
-          if (now - time > 7000) activePeers.delete(id);
-        });
-        onlineCountEl.textContent = Math.max(1, activePeers.size);
-      }, 2000);
     }
 
-    // 4. Connection Logic
+    // 4. Matchmaking & Peer Connection
     function findMatch() {
       disconnectCurrent();
-      statusText.textContent = 'Searching for stranger...';
-      appendSystemMessage('Looking for a stranger...');
+      statusEl.textContent = 'Searching for someone...';
+      appendSystemMessage('Searching for a stranger...');
       
       if (mqttClient && mqttClient.connected) {
         mqttClient.publish(MATCH_TOPIC, JSON.stringify({ action: 'looking', id: myId }));
@@ -219,7 +237,7 @@
     function connectToStranger(targetId) {
       if (isConnected) return;
       isConnected = true;
-      statusText.textContent = 'Connecting...';
+      statusEl.textContent = 'Connecting...';
 
       const conn = peer.connect(targetId);
       setupDataConnection(conn);
@@ -238,87 +256,141 @@
       activeCall = call;
       call.on('stream', stream => {
         remoteVideo.srcObject = stream;
-        statusText.textContent = 'Connected!';
-        appendSystemMessage('Connected to stranger.');
-        toggleChatControls(true);
+        statusEl.textContent = 'Connected!';
+        appendSystemMessage('Connected to a stranger.');
+        toggleChatInputs(true);
       });
-      call.on('close', () => handleDisconnect('Stranger left.'));
-      call.on('error', () => handleDisconnect('Connection error.'));
+      call.on('close', () => resetPeerState('Stranger disconnected.'));
+      call.on('error', () => resetPeerState('Call connection failed.'));
     }
 
     function setupDataConnection(conn) {
       activeConn = conn;
       conn.on('data', data => handleIncomingData(data));
-      conn.on('close', () => handleDisconnect('Stranger left chat.'));
+      conn.on('close', () => resetPeerState('Stranger left chat.'));
     }
 
-    // 5. Messaging, Image Handling & Typing Indicator
-    msgInput.addEventListener('input', () => {
-      if (!activeConn) return;
-      activeConn.send({ type: 'typing', isTyping: true });
-      clearTimeout(typingTimeout);
-      typingTimeout = setTimeout(() => {
-        if (activeConn) activeConn.send({ type: 'typing', isTyping: false });
-      }, 1500);
-    });
+    // 5. Data & Messaging Handlers
+    function handleIncomingData(data) {
+      if (typeof data === 'object') {
+        if (data.type === 'text') {
+          appendMessage(data.content, 'them');
+        } else if (data.type === 'img') {
+          appendImage(data.data, 'them');
+        } else if (data.type === 'typing') {
+          typingIndicator.textContent = data.isTyping ? 'Stranger is typing...' : '';
+        }
+      }
+    }
 
-    sendBtn.addEventListener('click', sendTextMessage);
-    msgInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendTextMessage(); });
-
-    function sendTextMessage() {
+    function sendMessage() {
       const text = msgInput.value.trim();
-      if (!text || !activeConn) return;
+      if (!text || !activeConn || !isConnected) return;
+      
       activeConn.send({ type: 'text', content: text });
       appendMessage(text, 'me');
       msgInput.value = '';
+      sendTypingSignal(false);
     }
 
-    // Attach Image & Auto-Resize
-    attachBtn.addEventListener('click', () => imgInput.click());
-    imgInput.addEventListener('change', e => {
+    // Typing Event Handler
+    msgInput.addEventListener('input', () => {
+      if (!activeConn || !isConnected) return;
+      sendTypingSignal(true);
+      clearTimeout(typingTimeout);
+      typingTimeout = setTimeout(() => sendTypingSignal(false), 1500);
+    });
+
+    function sendTypingSignal(isTyping) {
+      if (activeConn && isConnected) {
+        activeConn.send({ type: 'typing', isTyping });
+      }
+    }
+
+    // Image Upload & Compression Handler
+    imgBtn.addEventListener('click', () => imgInput.click());
+    
+    imgInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
-      if (!file || !activeConn) return;
+      if (!file || !activeConn || !isConnected) return;
 
       const reader = new FileReader();
-      reader.onload = event => {
+      reader.onload = (event) => {
         const img = new Image();
+        img.src = event.target.result;
         img.onload = () => {
-          // Downscale large images to keep WebRTC payload fast & light
+          // Compress Image via Canvas
           const canvas = document.createElement('canvas');
-          const maxDim = 600;
+          const maxDim = 800;
           let w = img.width, h = img.height;
           if (w > maxDim || h > maxDim) {
             if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; }
             else { w = Math.round((w * maxDim) / h); h = maxDim; }
           }
           canvas.width = w; canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
           
-          const resizedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          activeConn.send({ type: 'image', content: resizedDataUrl });
-          appendImage(resizedDataUrl, 'me');
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+          activeConn.send({ type: 'img', data: compressedBase64 });
+          appendImage(compressedBase64, 'me');
         };
-        img.src = event.target.result;
       };
       reader.readAsDataURL(file);
       imgInput.value = '';
     });
 
-    function handleIncomingData(data) {
-      if (data.type === 'text') {
-        typingText.textContent = '';
-        appendMessage(data.content, 'them');
-      } else if (data.type === 'image') {
-        typingText.textContent = '';
-        appendImage(data.content, 'them');
-      } else if (data.type === 'typing') {
-        typingText.textContent = data.isTyping ? 'Stranger is typing...' : '';
+    // 6. Utility UI Actions
+    nextBtn.addEventListener('click', findMatch);
+
+    endBtn.addEventListener('click', () => {
+      disconnectCurrent();
+      statusEl.textContent = 'Chat ended.';
+      appendSystemMessage('You ended the chat. Click Next Stranger to connect again.');
+    });
+
+    sendBtn.addEventListener('click', sendMessage);
+    msgInput.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
+
+    // Aspect Ratio Selector
+    aspectSelect.addEventListener('change', (e) => {
+      const selectedRatio = e.target.value;
+      document.querySelectorAll('.video-card').forEach(card => {
+        card.style.aspectRatio = selectedRatio;
+      });
+    });
+
+    function disconnectCurrent() {
+      if (activeCall) activeCall.close();
+      if (activeConn) activeConn.close();
+      activeCall = null;
+      activeConn = null;
+      isConnected = false;
+      remoteVideo.srcObject = null;
+      messagesEl.innerHTML = '';
+      typingIndicator.textContent = '';
+      toggleChatInputs(false);
+    }
+
+    function resetPeerState(reason) {
+      if (isConnected) {
+        appendSystemMessage(reason);
+        statusEl.textContent = 'Disconnected';
+        toggleChatInputs(false);
+        isConnected = false;
       }
+    }
+
+    function toggleChatInputs(enabled) {
+      msgInput.disabled = !enabled;
+      sendBtn.disabled = !enabled;
+      imgBtn.disabled = !enabled;
+      endBtn.disabled = !enabled;
     }
 
     function appendMessage(text, sender) {
       const div = document.createElement('div');
-      div.className = `msg ${sender}`;
+      div.className = `message ${sender}`;
       div.textContent = text;
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -342,42 +414,7 @@
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    // 6. Actions & Cleanup
-    nextBtn.addEventListener('click', findMatch);
-    endBtn.addEventListener('click', () => {
-      disconnectCurrent();
-      statusText.textContent = 'Chat ended.';
-      appendSystemMessage('You ended the chat.');
-    });
-
-    function disconnectCurrent() {
-      if (activeCall) activeCall.close();
-      if (activeConn) activeConn.close();
-      activeCall = null;
-      activeConn = null;
-      isConnected = false;
-      remoteVideo.srcObject = null;
-      messagesEl.innerHTML = '';
-      typingText.textContent = '';
-      toggleChatControls(false);
-    }
-
-    function handleDisconnect(reason) {
-      if (isConnected) {
-        disconnectCurrent();
-        statusText.textContent = 'Disconnected';
-        appendSystemMessage(reason);
-      }
-    }
-
-    function toggleChatControls(enabled) {
-      msgInput.disabled = !enabled;
-      sendBtn.disabled = !enabled;
-      attachBtn.disabled = !enabled;
-      endBtn.disabled = !enabled;
-    }
-
-    // Start App
+    // Initialize App
     initCamera();
   </script>
 </body>
